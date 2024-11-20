@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include "helper.h"
+#include "ErrorCodes.h"
 #include <signal.h>
 
 #ifdef __APPLE__
@@ -40,6 +41,7 @@ StorageServerInfo storage_servers[MAX_STORAGE_SERVERS];
 int storage_server_index = 0;
 sem_t storage_semaphore;
 
+
 void *handle_copy_request(char *buffer, int client_socket, int _src_sock, int _dest_sock);
 
 void ctrlCHandler(int sig) {
@@ -53,7 +55,7 @@ void ctrlCHandler(int sig) {
 
 void indexHelper(int storage_socket, trienode *root) {
     sem_wait(&storage_semaphore);
-    char path[MAX_PATH_SIZE]={0};
+    char path[MAX_PATH_SIZE] = {0};
     char temp_buffer[MAX_PATH_SIZE] = ""; // Temporary buffer to hold incomplete paths
     int finished_indexing = false;
     while (finished_indexing == false && recv_good(storage_socket, path, MAX_PATH_SIZE) > 0) {
@@ -107,7 +109,9 @@ void create_backup_helper(int source_server_index, int dest_server_index) {
              ]->childeren[0]->data);
     if (send_good(storage_servers[dest_server_index].clientInfo.socket, backup_buffer,
                   strlen(backup_buffer)) < 0) {
-        perror("Failed to send command to backup server 1");
+        // perror("Failed to send command to backup server 1");
+        printErrorDetails(38);
+
     }
     char command_buffer[BUFFER_SIZE];
     snprintf(command_buffer, sizeof(command_buffer),
@@ -134,7 +138,8 @@ void *register_storage_server(void *arg) {
 
     // Receive initial registration data
     if (recv_good(storage_socket, &ss_info, sizeof(ss_info)) <= 0) {
-        perror("Failed to receive storage server info or client disconnected");
+        // perror("Failed to receive storage server info or client disconnected");
+        printErrorDetails(39);
         close(storage_socket);
         free(ssc_info);
         return NULL;
@@ -220,14 +225,16 @@ void *handle_ss(void *arg) {
     // Bind and listen
     struct sockaddr_in server_addr_for_ss = *(struct sockaddr_in *) arg;
     if (bind(server_socket_for_ss, (struct sockaddr *) &server_addr_for_ss, sizeof(server_addr_for_ss)) < 0) {
-        perror("Bind failed SS");
+        // perror("Bind failed SS");
+        printErrorDetails(41);
         close(server_socket_for_ss);
         close(server_socket_for_client);
         exit(EXIT_FAILURE);
     }
 
     if (listen(server_socket_for_ss, 5) < 0) {
-        perror("Listen failed SS");
+        // perror("Listen failed SS");
+        printErrorDetails(40);
         close(server_socket_for_ss);
         close(server_socket_for_client);
         exit(EXIT_FAILURE);
@@ -243,7 +250,8 @@ void *handle_ss(void *arg) {
                 // No connections yet, continue to the next iteration
                 continue;
             } else {
-                perror("Accept failed");
+                // perror("Accept failed");
+                printErrorDetails(42);
                 continue;
             }
         }
@@ -267,7 +275,8 @@ void *handle_ss(void *arg) {
         // Create a thread to handle the Storage Server
         pthread_t thread_id;
         if (pthread_create(&thread_id, NULL, register_storage_server, ssc_info) != 0) {
-            perror("Failed to create thread");
+            // perror("Failed to create thread");
+            printErrorDetails(43);
             close(storage_socket);
             free(ssc_info);
         }
@@ -360,7 +369,8 @@ int isSSUp(int index) {
 
     // Create the socket
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("Socket creation failed");
+        // perror("Socket creation failed");
+        printErrorDetails(7);
         return 0;
     }
 
@@ -369,7 +379,8 @@ int isSSUp(int index) {
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(ss.portClient);
     if (inet_pton(AF_INET, inet_ntoa(ss.clientInfo.addr.sin_addr), &server_addr.sin_addr) <= 0) {
-        perror("Invalid IP address");
+        // perror("Invalid IP address");
+        printErrorDetails(8);
         close(sock);
         return 0;
     }
@@ -377,7 +388,8 @@ int isSSUp(int index) {
     // Connect to the server
     if (connect(sock, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0) {
         storage_servers[index].isUp = 0;
-        perror("Connection to storage server failed");
+        // perror("Connection to storage server failed");
+        printErrorDetails(45);
         close(sock);
         return 0;
     }
@@ -386,7 +398,8 @@ int isSSUp(int index) {
     printf("Pinging index %d on socket %d\n", index, socket);
     if (send_good(sock, "ping", strlen("ping")) < 0) {
         storage_servers[index].isUp = 0;
-        perror("Failed to send ping command");
+        // perror("Failed to send ping command");
+        printErrorDetails(10);
         close(sock);
         return 0;
     }
@@ -394,7 +407,8 @@ int isSSUp(int index) {
     char buffer[BUFFER_SIZE] = {0};
     if (recv_good(sock, buffer, BUFFER_SIZE) < 0) {
         storage_servers[index].isUp = 0;
-        perror("Failed to receive ping command");
+        // perror("Failed to receive ping command");
+        printErrorDetails(11);
         close(sock);
         return 0;
     }
@@ -406,6 +420,7 @@ int isSSUp(int index) {
 }
 
 void print_cache() {
+    return;
     printf("Current Cache State:\n");
     if (cache.size == 0) {
         printf("Cache is empty.\n");
@@ -508,7 +523,8 @@ void *handle_copy_request(char *buffer, int client_socket, int _src_sock, int _d
     printf("Trying to copy\n");
     char *dup_buffer = strdup(buffer);
     if (dup_buffer == NULL) {
-        perror("Failed to duplicate buffer");
+        // perror("Failed to duplicate buffer");
+        printErrorDetails(48);
         return NULL;
     }
 
@@ -518,18 +534,21 @@ void *handle_copy_request(char *buffer, int client_socket, int _src_sock, int _d
         printf("Bypassing path checks for Backup operation\n");
 
         // Modify the buffer for "copydifferent"
-        memmove(buffer + 13, buffer + 4, strlen(buffer + 4) + 1); // Shift the rest of the string
-        memcpy(buffer, "copydifferent", 13); // Set the operation to "copydifferent"
+        if (strncmp(buffer, "lcopy", strlen("lcopy")) != 0) {
+            memmove(buffer + 13, buffer + 4, strlen(buffer + 4) + 1); // Shift the rest of the string
+            memcpy(buffer, "copydifferent", 13); // Set the operation to "copydifferent"
+        }
+
         char ss_info[BUFFER_SIZE];
         snprintf(ss_info, BUFFER_SIZE, " %s %d", inet_ntoa(storage_servers[_dest_index].clientInfo.addr.sin_addr),
                  storage_servers[_dest_index].portClient);
         strcat(buffer, ss_info);
         printf("Sending different different |%s|\n", buffer);
-        printf("Sending different different |%s|\n", buffer);
 
         // Send the modified buffer to the source socket
         if (send_good(_src_sock, buffer, strlen(buffer)) < 0) {
-            perror("Failed to send command to source storage server");
+            // perror("Failed to send command to source storage server");
+            printErrorDetails(49);
             free(dup_buffer);
             return NULL;
         }
@@ -544,7 +563,8 @@ void *handle_copy_request(char *buffer, int client_socket, int _src_sock, int _d
         // Receive the response from the source storage server
         char response[BUFFER_SIZE] = {0};
         if (recv_good(_src_sock, response, BUFFER_SIZE) <= 0) {
-            perror("Failed to receive response from source storage server");
+            // perror("Failed to receive response from source storage server");
+            printErrorDetails(50);
             free(dup_buffer);
             return NULL;
         }
@@ -576,7 +596,8 @@ void *handle_copy_request(char *buffer, int client_socket, int _src_sock, int _d
         if (!command || !src || !dest || strlen(src) == 0 || strlen(dest) == 0) {
             const char *invalid_request_msg = "Invalid request. Source or destination path missing.";
             if (send_good(client_socket, invalid_request_msg, strlen(invalid_request_msg)) < 0) {
-                perror("Client not responding");
+                // perror("Client not responding");
+
             }
             free(dup_buffer);
             return NULL;
@@ -587,7 +608,8 @@ void *handle_copy_request(char *buffer, int client_socket, int _src_sock, int _d
             strcmp(dest, "/") == 0 || strcmp(dest, "./") == 0) {
             const char *invalid_path_msg = "Invalid source or destination path.";
             if (send_good(client_socket, invalid_path_msg, strlen(invalid_path_msg)) < 0) {
-                perror("Client not responding");
+                // perror("Client not responding");
+                printErrorDetails(51);
             }
             free(dup_buffer);
             return NULL;
@@ -601,7 +623,8 @@ void *handle_copy_request(char *buffer, int client_socket, int _src_sock, int _d
             !storage_servers[dest_index].isUp) {
             const char *not_found_msg = "Storage server not found";
             if (send_good(client_socket, not_found_msg, strlen(not_found_msg) + 1) < 0) {
-                perror("Client not responding");
+                // perror("Client not responding");
+                printErrorDetails(51);
             }
             free(dup_buffer);
             return NULL;
@@ -626,21 +649,24 @@ void *handle_copy_request(char *buffer, int client_socket, int _src_sock, int _d
 
         }
         if (send_good(src_sock, buffer, strlen(buffer)) < 0) {
-            perror("Failed to send command to SS");
+            // perror("Failed to send command to SS");
+            printErrorDetails(49);
             return NULL;
         }
 
         // Receive the response from the storage server
         char *response = calloc(BUFFER_SIZE, sizeof(char));
         if (recv_good(src_sock, response, BUFFER_SIZE) <= 0) {
-            perror("Failed to receive response from SS");
+            // perror("Failed to receive response from SS");
+            printErrorDetails(50);
             free(response);
             return NULL;
         }
         printf("Sending to client:%s\n", response);
         // Send the response to the client
         if (send_good(client_socket, response, strlen(response)) < 0) {
-            perror("Failed to send response to client");
+            // perror("Failed to send response to client");
+            printErrorDetails(52);
             free(response);
             return NULL;
         }
@@ -694,7 +720,8 @@ void *process_client(void *arg) {
         char buffer[BUFFER_SIZE];
         bzero(buffer, BUFFER_SIZE);
         if (recv_good(client_socket, buffer, BUFFER_SIZE) <= 0) {
-            perror("Failed to receive message from client");
+            // perror("Failed to receive message from client");
+            printErrorDetails(53 );
             close(client_socket);
             return NULL;
         }
@@ -720,7 +747,7 @@ void *process_client(void *arg) {
 
             // Notify the client that the folder listing is complete
             if (send_good(client_socket, "@#!@#over@$", strlen("@#!@#over@$")) < 0) {
-                perror("Client not responding\n");
+                // perror("Client not responding\n");
             }
             continue;
         }
@@ -738,7 +765,8 @@ void *process_client(void *arg) {
         if (path == NULL || strcmp(path, "/") == 0 || strcmp(path, "./") == 0) {
             const char *not_found_msg = "Storage server not found";
             if (send_good(client_socket, not_found_msg, strlen(not_found_msg)) < 0) {
-                perror("Client not responding\n");
+                // perror("Client not responding\n");
+                printErrorDetails(51);
             }
             free(_buffer);
             continue;
@@ -776,12 +804,14 @@ void *process_client(void *arg) {
 
                 printf("send_buffer: %s\n", send_buffer);
                 if (send_good(client_socket, send_buffer, siz) < 0) {
-                    perror("Send error");
+                    // perror("Send error");
+                    printErrorDetails(10);
                 }
             } else {
                 const char *not_found_msg = "Storage server not found";
                 if (send_good(client_socket, not_found_msg, strlen(not_found_msg)) < 0) {
-                    perror("Client not responding\n");
+                    // perror("Client not responding\n");
+                    printErrorDetails(51);
                 }
 
                 // log
@@ -807,7 +837,8 @@ void *process_client(void *arg) {
                 strcmp(temp_path, "") == 0 || strcmp(temp_path, " ") == 0) {
                 //Since, these are invalid
                 if (send_good(client_socket, "Invalid Path", strlen("Invalid Path")) < 0) {
-                    perror("Client not responding\n");
+                    // perror("Client not responding\n");
+                    printErrorDetails(51);
                     free(temp_path);
                     return NULL;
                 }
@@ -822,21 +853,25 @@ void *process_client(void *arg) {
                 int ss_sock = storage_servers[ssindex].clientInfo.socket;
                 printf("Sending to storage server %s\n", buffer);
                 if (send_good(ss_sock, buffer, strlen(buffer)) < 0) {
-                    perror("Client not responding\n");
+                    // perror("Client not responding\n");
+                    printErrorDetails(51);
                 } else {
                     char *response = calloc(BUFFER_SIZE, sizeof(char));
                     int bytes = 0;
                     if ((bytes = recv_good(ss_sock, response, BUFFER_SIZE)) <= 0) {
-                        perror("SS not responding\n");
+                        // perror("SS not responding\n");
+                        printErrorDetails(54);
                         if (send_good(client_socket, "Storage server not responding",
                                       strlen("Storage server not responding")) < 0) {
-                            perror("Client not responding\n");
+                            // perror("Client not responding\n");
+                            printErrorDetails(51);
                         }
                         free(response);
                     } else {
                         response[bytes] = '\0';
                         if (send_good(client_socket, response, strlen(response)) < 0) {
-                            perror("Client not responding\n");
+                            // perror("Client not responding\n");
+                            printErrorDetails(51);
                         }
                         printf("resp: %s\n", response);
                         if (strncmp(response, "Could not", strlen("Could not")) != 0) {
@@ -850,7 +885,8 @@ void *process_client(void *arg) {
                                 snprintf(backup_buffer, BUFFER_SIZE, "%sb %s", command, path);
                                 if (send_good(storage_servers[bs1].clientInfo.socket, backup_buffer,
                                               strlen(backup_buffer)) < 0) {
-                                    perror("Failed to send command to backup server 1");
+                                    // perror("Failed to send command to backup server 1");
+                                    printErrorDetails(38);
                                 }
                             }
                             if (bs2 != -1 && isSSUp(bs2)) {
@@ -858,7 +894,8 @@ void *process_client(void *arg) {
                                 snprintf(backup_buffer, BUFFER_SIZE, "%sb %s", command, path);
                                 if (send_good(storage_servers[bs2].clientInfo.socket, backup_buffer,
                                               strlen(backup_buffer)) < 0) {
-                                    perror("Failed to send command to backup server 1");
+                                    // perror("Failed to send command to backup server 1");
+                                    printErrorDetails(38);
                                 }
                             }
 
@@ -870,7 +907,8 @@ void *process_client(void *arg) {
             } else {
                 if (send_good(client_socket, "Storage server not found",
                               strlen("Storage server not found")) < 0) {
-                    perror("Client not responding\n");
+                    // perror("Client not responding\n");
+                    printErrorDetails(51);
                 }
             }
         }
@@ -881,7 +919,8 @@ void *process_client(void *arg) {
                 strcmp(path, " ") == 0) {
                 //Since, these are invalid
                 if (send_good(client_socket, "Invalid Path", strlen("Invalid Path")) < 0) {
-                    perror("Client not responding\n");
+                    // perror("Client not responding\n");
+                    printErrorDetails(51);
                     return NULL;
                 }
 
@@ -901,7 +940,8 @@ void *process_client(void *arg) {
                 int ss_sock = storage_servers[ssindex].clientInfo.socket;
                 printf("Sending buffer %s\n", buffer);
                 if (send_good(ss_sock, buffer, strlen(buffer)) < 0) {
-                    perror("Client not responding\n");
+                    // perror("Client not responding\n");
+                    printErrorDetails(51);
                 } else {
 
                     // log 
@@ -917,7 +957,8 @@ void *process_client(void *arg) {
                         perror("SS not responding\n");
                         if (send_good(client_socket, "Storage server not responding",
                                       strlen("Storage server not responding")) < 0) {
-                            perror("Client not responding\n");
+                            // perror("Client not responding\n");
+                            printErrorDetails(51);
                             free(response);
                         }
 
@@ -940,7 +981,8 @@ void *process_client(void *arg) {
                         response[bytes] = '\0';
                         printf("resp: %s\n", response);
                         if (send_good(client_socket, response, strlen(response)) < 0) {
-                            perror("Client not responding\n");
+                            // perror("Client not responding\n");
+                            printErrorDetails(51);
                         }
 
                         // log
@@ -962,7 +1004,8 @@ void *process_client(void *arg) {
                                 snprintf(backup_buffer, BUFFER_SIZE, "%sb %s", command, path);
                                 if (send_good(storage_servers[bs1].clientInfo.socket, backup_buffer,
                                               strlen(backup_buffer)) < 0) {
-                                    perror("Failed to send command to backup server 1");
+                                    // perror("Failed to send command to backup server 1");
+                                    printErrorDetails(38);
                                 }
 
                               // log 
@@ -978,7 +1021,8 @@ void *process_client(void *arg) {
                                 snprintf(backup_buffer, BUFFER_SIZE, "%sb %s", command, path);
                                 if (send_good(storage_servers[bs2].clientInfo.socket, backup_buffer,
                                               strlen(backup_buffer)) < 0) {
-                                    perror("Failed to send command to backup server 1");
+                                    // perror("Failed to send command to backup server 1");
+                                    printErrorDetails(38);
                                 }
 
                                 // log
@@ -997,7 +1041,8 @@ void *process_client(void *arg) {
             } else {
                 if (send_good(client_socket, "Storage server not found",
                               strlen("Storage server not found")) < 0) {
-                    perror("Client not responding\n");
+                    // perror("Client not responding\n");
+                    printErrorDetails(51);
                 }
 
                 // log
@@ -1021,13 +1066,26 @@ void *process_client(void *arg) {
                     _index = redundantSS(ssindex);
                     portToSend = storage_servers[_index].portClient;
                     ipToSend = inet_ntoa(storage_servers[_index].clientInfo.addr.sin_addr);
+                    // Handle the case where _index is not the same as ssindex
                 }
-                if (_index != -1) {
-                    char ss_info[BUFFER_SIZE] = {0};
-                    snprintf(ss_info, BUFFER_SIZE, "%s,%d", ipToSend, portToSend);
-                    printf("Found in ssindex(%d): %s\n", ssindex, ss_info);
-                    if (send_good(client_socket, ss_info, strlen(ss_info)) < 0) {
+                if (_index != ssindex) {
+                    char redundancy_msg[BUFFER_SIZE] = {0};
+                    snprintf(redundancy_msg, BUFFER_SIZE, "Backup %s,%d,%s", ipToSend, portToSend,
+                             storage_servers[_index].root->childeren[0]->childeren[0]->data);
+                    printf("Using redundant server for ssindex(%d): %s\n", ssindex, redundancy_msg);
+
+                    if (send_good(client_socket, redundancy_msg, strlen(redundancy_msg)) < 0) {
                         perror("Client not responding\n");
+                    }
+                }
+                else if (_index != -1) {
+                    char ss_info[BUFFER_SIZE] = {0};
+                    snprintf(ss_info, BUFFER_SIZE, "%s,%d ", ipToSend, portToSend);
+                    printf("Found in ssindex(%d): %s\n", ssindex, ss_info);
+
+                    if (send_good(client_socket, ss_info, strlen(ss_info)) < 0) {
+                        // perror("Client not responding\n");
+                        printErrorDetails(51);
                     }
 
                     // log
@@ -1040,7 +1098,8 @@ void *process_client(void *arg) {
                 } else {
                     const char *not_found_msg = "Storage server not found";
                     if (send_good(client_socket, not_found_msg, strlen(not_found_msg)) < 0) {
-                        perror("Client not responding\n");
+                        // perror("Client not responding\n");
+                        printErrorDetails(51);
                     }
 
                     // log
@@ -1055,7 +1114,8 @@ void *process_client(void *arg) {
             } else {
                 const char *not_found_msg = "Storage server not found";
                 if (send_good(client_socket, not_found_msg, strlen(not_found_msg)) < 0) {
-                    perror("Client not responding\n");
+                    // perror("Client not responding\n");
+                    printErrorDetails(51);
                 }
 
                 // log
@@ -1066,6 +1126,7 @@ void *process_client(void *arg) {
                 // log done
 
             }
+
         }
         free(_buffer);
     }
@@ -1074,19 +1135,165 @@ void *process_client(void *arg) {
     return NULL;
 }
 
+int create_client_socket(const char *ip_address, int port) {
+    printf("creating the client socket for ip%s and port %d\n", ip_address, port);
+    fflush(stdout);
+    int sock;
+    struct sockaddr_in client_addr;
+
+    // Create a socket
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
+        perror("Socket creation failed");
+        return -1;
+    }
+
+    // Configure the client address structure
+    memset(&client_addr, 0, sizeof(client_addr));
+    client_addr.sin_family = AF_INET;
+    client_addr.sin_port = htons(port);
+
+    // Convert IP address to binary form
+    if (inet_pton(AF_INET, ip_address, &client_addr.sin_addr) <= 0) {
+        perror("Invalid IP address format or address not supported");
+        close(sock);
+        return -1;
+    }
+
+    // Connect to the client
+    if (connect(sock, (struct sockaddr *) &client_addr, sizeof(client_addr)) < 0) {
+        perror("Connection to client failed");
+        close(sock);
+        return -1;
+    }
+
+    printf("Connected to client at %s:%d\n", ip_address, port);
+    return sock;
+}
+
+
+void *listen_async(void *arg) {
+    int client = *(int *) arg;
+    printf("\033[0;32mGot a client\033[0m\n");  // Green text
+    char buffer[BUFFER_SIZE] = {0};
+    if (recv_good(client, buffer, BUFFER_SIZE) <= 0) {
+        perror("Failed to receive message from client");
+        close(client);
+        return NULL;
+    }
+
+
+    printf("\033[0;32mAsync %d>>|%s|\033[0m\n", client, buffer);  // Green text
+    if (strncmp(buffer, "WRITE_SYNC", strlen("WRITE_SYNC")) == 0) {
+        char *token = strtok(buffer, "|");
+        char *path = strtok(NULL, "|"); // Skip the "WRITE_SYNC" part
+        printf("-- PATH %s --\n", path);
+        int ssindex = search_storage_server(path);
+        int BS1 = storage_servers[ssindex].backupServer1;
+        int BS2 = storage_servers[ssindex].backupServer2;
+        printf("SSINDEX %d\n", ssindex);
+        printf("BS1 %d\n", BS1);
+        printf("BS2 %d\n", BS2);
+        char command_buffer[BUFFER_SIZE];
+        if (BS1 != -1 && isSSUp(BS1)) {
+            snprintf(command_buffer, BUFFER_SIZE,
+                     "lcopy %s ./backupfolderforss/%s",
+                     path, // Source path
+                     storage_servers[BS1].root->childeren[0]->childeren[0]->data
+            );
+            printf("\033[0;31m --- Sending this to BS1: %s ----\033[0m\n", command_buffer);
+            handle_copy_request(command_buffer, -1, storage_servers[ssindex].socket, BS1);
+        }
+        printf("III AMM HERERERERE\n");
+        if (BS2 != -1 && isSSUp(BS2)) {
+
+            snprintf(command_buffer, BUFFER_SIZE,
+                     "lcopy %s ./backupfolderforss/%s",
+                     path, // Source path
+                     storage_servers[BS2].root->childeren[0]->childeren[0]->data
+            );
+            printf("\033[0;31m --- Sending this to BS2: %s ----\033[0m\n", command_buffer);
+            fflush(stdout);
+            handle_copy_request(command_buffer, -1, storage_servers[ssindex].socket, BS2);
+        }
+
+
+        return NULL;
+    } else if (strncmp(buffer, "writeasync", strlen("writeasync")) == 0) {
+        char *token = strtok(buffer, " ");   // Parse the command type
+        char *src_path = strtok(NULL, " "); // Source path
+        char *client_ip = strtok(NULL, " "); // Client IP
+        char *client_port = strtok(NULL, " "); // Client Port
+
+        printf("-- SRC_PATH: %s -- SRC_PATH: %s --\n", src_path, src_path);
+        printf("-- CLIENT_IP: %s -- CLIENT_PORT: %s --\n", client_ip, client_port);
+
+        int ssindex = search_storage_server(src_path);
+        int BS1 = storage_servers[ssindex].backupServer1;
+        int BS2 = storage_servers[ssindex].backupServer2;
+
+        printf("SSINDEX %d\n", ssindex);
+        printf("BS1 %d\n", BS1);
+        printf("BS2 %d\n", BS2);
+
+        char command_buffer[BUFFER_SIZE];
+        if (BS1 != -1 && isSSUp(BS1)) {
+            snprintf(command_buffer, BUFFER_SIZE,
+                     "lcopy %s ./backupfolderforss/%s",
+                     src_path, // Source path
+                     storage_servers[BS1].root->childeren[0]->childeren[0]->data
+            );
+            printf("\033[0;31m --- Sending this to BS1: %s ----\033[0m\n", command_buffer);
+            handle_copy_request(command_buffer, -1, storage_servers[ssindex].socket, BS1);
+        }
+
+        if (BS2 != -1 && isSSUp(BS2)) {
+            snprintf(command_buffer, BUFFER_SIZE,
+                     "lcopy %s ./backupfolderforss/%s",
+                     src_path, // Source path
+                     storage_servers[BS2].root->childeren[0]->childeren[0]->data
+            );
+            printf("\033[0;31m --- Sending this to BS2: %s ----\033[0m\n", command_buffer);
+            fflush(stdout);
+            handle_copy_request(command_buffer, -1, storage_servers[ssindex].socket, BS2);
+        }
+        printf("Starting to send the ACK to client\n");
+        // Send acknowledgment message to the client
+        char ack_buffer[BUFFER_SIZE];
+        snprintf(ack_buffer, BUFFER_SIZE, "ACK: Backup completed for %s", src_path);
+        printf("trying to send ack\n");
+        printf("Port is %s\n", client_port);
+        int client_sock = create_client_socket(client_ip, atoi(client_port)); // Utility function to create socket
+        if (client_sock != -1) {
+            send(client_sock, ack_buffer, strlen(ack_buffer), 0);
+            printf("\033[0;32m --- Sent ACK to Client: %s ----\033[0m\n", ack_buffer);
+            close(client_sock);
+        } else {
+            printf("\033[0;31m --- Failed to send ACK to Client ----\033[0m\n");
+        }
+
+        return NULL;
+    } else {
+        printf("Invalid command\n");
+    }
+
+
+}
 
 void *handling_client(void *arg) {
     struct sockaddr_in server_addr_for_client = *(struct sockaddr_in *) arg;
     if (bind(server_socket_for_client, (struct sockaddr *) &server_addr_for_client, sizeof(server_addr_for_client)) <
         0) {
-        perror("Bind failed Client");
+        // perror("Bind failed Client");
+        printErrorDetails(41);
         close(server_socket_for_ss);
         close(server_socket_for_client);
         exit(EXIT_FAILURE);
     }
     printf("Naming Server for client is running on port %d...\n", CLIENT_PORT_NS);
     if (listen(server_socket_for_client, 5) < 0) {
-        perror("Listen failed Client");
+        // perror("Listen failed Client");
+        printErrorDetails(40);
         close(server_socket_for_ss);
         close(server_socket_for_client);
         exit(EXIT_FAILURE);
@@ -1100,7 +1307,8 @@ void *handling_client(void *arg) {
                 // No connections yet, continue to the next iteration
                 continue;
             } else {
-                perror("Accept failed");
+                // perror("Accept failed");
+                printErrorDetails(42);
                 continue;
             }
         }
@@ -1116,7 +1324,8 @@ void *handling_client(void *arg) {
 
         pthread_t thread_id;
         if (pthread_create(&thread_id, NULL, process_client, &client_socket) != 0) {
-            perror("Failed to create thread");
+            // perror("Failed to create thread");
+            printErrorDetails(43);
             close(client_socket);
         }
     }
@@ -1142,11 +1351,13 @@ int main() {
 
     // Create the server socket for ss and client
     if ((server_socket_for_ss = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("Socket creation failed");
+        // perror("Socket creation failed");
+        printErrorDetails(7);
         exit(EXIT_FAILURE);
     }
     if ((server_socket_for_client = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("Socket creation failed");
+        // perror("Socket creation failed");
+        printErrorDetails(7);
         exit(EXIT_FAILURE);
     }
 
@@ -1156,7 +1367,8 @@ int main() {
 
 // Enable port reuse on server_socket_for_ss
     if (setsockopt(server_socket_for_ss, SOL_SOCKET, SO_REUSEADDR, (char *) &reuse, sizeof(reuse)) < 0) {
-        perror("setsockopt SO_REUSEADDR failed");
+        // perror("setsockopt SO_REUSEADDR failed");
+        printErrorDetails(44);
         close(server_socket_for_ss);
         close(server_socket_for_client);
         return 1;
@@ -1164,7 +1376,8 @@ int main() {
 
 // Enable port reuse on server_socket_for_client
     if (setsockopt(server_socket_for_client, SOL_SOCKET, SO_REUSEADDR, (char *) &reuse, sizeof(reuse)) < 0) {
-        perror("setsockopt SO_REUSEADDR failed");
+        // perror("setsockopt SO_REUSEADDR failed");
+        printErrorDetails(44);
         close(server_socket_for_ss);
         close(server_socket_for_client);
         return 1;
@@ -1173,14 +1386,16 @@ int main() {
 // Also set TCP_NODELAY for both sockets
     int flag = 1;
     if (setsockopt(server_socket_for_ss, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(flag)) < 0) {
-        perror("setsockopt TCP_NODELAY failed");
+        // perror("setsockopt TCP_NODELAY failed");
+        printErrorDetails(44);
         close(server_socket_for_ss);
         close(server_socket_for_client);
         return 1;
     }
 
     if (setsockopt(server_socket_for_client, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(flag)) < 0) {
-        perror("setsockopt TCP_NODELAY failed");
+        // perror("setsockopt TCP_NODELAY failed");
+        printErrorDetails(44);
         close(server_socket_for_ss);
         close(server_socket_for_client);
         return 1;
@@ -1203,15 +1418,75 @@ int main() {
     // Accept connections
     pthread_t thread_ss, thread_client;
     if (pthread_create(&thread_ss, NULL, handle_ss, &server_addr_for_ss) != 0) {
-        perror("Failed to create thread");
+        // perror("Failed to create thread");
+        printErrorDetails(43);
         close(server_socket_for_ss);
         close(server_socket_for_client);
     }
     if (pthread_create(&thread_client, NULL, handling_client, &server_addr_for_client) != 0) {
-        perror("Failed to create thread");
+        // perror("Failed to create thread");
+        printErrorDetails(43);
         close(server_socket_for_ss);
         close(server_socket_for_client);
     }
+
+
+
+    // Create a new socket for listening to async
+    int async_socket;
+    if ((async_socket = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("Socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+// Enable port reuse on async_socket
+    if (setsockopt(async_socket, SOL_SOCKET, SO_REUSEADDR, (char *) &reuse, sizeof(reuse)) < 0) {
+        perror("setsockopt SO_REUSEADDR failed");
+        close(async_socket);
+        return 1;
+    }
+
+// Set TCP_NODELAY for async_socket
+    if (setsockopt(async_socket, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(flag)) < 0) {
+        perror("setsockopt TCP_NODELAY failed");
+        close(async_socket);
+        return 1;
+    }
+
+// Bind the socket to a port
+    struct sockaddr_in async_addr;
+    async_addr.sin_family = AF_INET;
+    async_addr.sin_addr.s_addr = INADDR_ANY;
+    async_addr.sin_port = htons(ASYNC_PORT_FOR_NM);
+
+    if (bind(async_socket, (struct sockaddr *) &async_addr, sizeof(async_addr)) < 0) {
+        perror("Bind failed");
+        close(async_socket);
+        return 1;
+    }
+
+// Start listening for incoming connections
+    if (listen(async_socket, 5) < 0) {
+        perror("Listen failed");
+        close(async_socket);
+        return 1;
+    }
+
+    while (1) {
+        struct sockaddr_in client_addr;
+        socklen_t addr_size = sizeof(client_addr);
+        int client_socket = accept(async_socket, (struct sockaddr *) &client_addr, &addr_size);
+        if (client_socket < 0) {
+            perror("Accept failed");
+            continue;
+        }
+        pthread_t thread_id;
+        if (pthread_create(&thread_id, NULL, listen_async, &client_socket) != 0)
+            perror("Failed to create thread");
+
+    }
+
+
     pthread_join(thread_ss, NULL);
     pthread_join(thread_client, NULL);
     close(server_socket_for_ss);

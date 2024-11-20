@@ -594,82 +594,142 @@ void copy_same(char *buffer, char *buffer2) {
 }
 
 
-int write_file(char *command, char *buffer2) {
+// int write_file(char *command, char *buffer2) {
 
-    char *path = strtok(command, "|");
-    path = strtok(NULL, "|");
-    char *data = strtok(NULL, "|");
+//     char *path = strtok(command, "|");
+//     path = strtok(NULL, "|");
+//     char *data = strtok(NULL, "|");
 
-    // printf("asd%saa aa%saa\n", path, data);
 
-    FILE *file = fopen(path, "a");
-    if (file == NULL) {
-        snprintf(buffer2, BUFFER_SIZE, "Could not open file @ %s \n", path);
-        printf("%s", buffer2);
-        perror("fopen");
-        return -1;
-    }
+//     FILE *file = fopen(path, "a");
+//     if (file == NULL) {
+//         snprintf(buffer2, BUFFER_SIZE, "Could not open file @ %s \n", path);
+//         printf("%s", buffer2);
+//         perror("fopen");
+//         return -1;
+//     }
 
-    fprintf(file, "%s\n", data);
-    fclose(file);
-    return 0;
-}
+//     fprintf(file, "%s\n", data);
+//     snprintf(buffer2, BUFFER_SIZE, "Data written successfully\n");
+//     fflush(file);
+//     fclose(file);
+//     return 0;
+// }
 
-void *write_file_async(void *arg) {
-    void **arguments = (void **) arg;
-    char *command = (char *) arguments[0];
-    int sock = *(int *) arguments[1];
+// void *write_file_async(void *arg) {
+//     void **arguments = (void **) arg;
+//     char *command = (char *) arguments[0];
+//     int sock = *(int *) arguments[1];
 
-    char ack_msg[] = "Write Request Recieved";
-    printf("ack message: %s:%d\n", ack_msg, sock);
-    if (send_good(sock, ack_msg, strlen(ack_msg)) < 0) {
-        perror("Failed to send acknowledgment");
-    }
 
-    // printf("args are: command: %s  sock: %d\n", command, sock);
+//     printf("the command inside WFA: %s\n", command);
+//     printf("Sock after sending: %d\n", sock);
+//     printf("Server IP: %s\n", (char *) arguments[2]);
+//     char ack_msg[] = "Write Request Recieved";
+//     printf("ack message: %s:%d\n", ack_msg, sock);
+//     if (send_good(sock, ack_msg, strlen(ack_msg)) < 0) {
+//         perror("Failed to send acknowledgment");
+//     }
 
-    char *path = strtok(command, "|");
-    path = strtok(NULL, "|");
-    char *data = strtok(NULL, "|");
+//     // printf("args are: command: %s  sock: %d\n", command, sock);
+//     char *command_copy = strdup(command);  // Create a copy to tokenize
+//     char *path = strtok(command_copy, "|");
+//     path = strtok(NULL, "|");
+//     char *ip = strtok(NULL, "|");
+//     char *port_of_cl = strtok(NULL, "|");
+//     char *data = strtok(NULL, "|");
 
-    FILE *file = fopen(path, "a");
-    if (file == NULL) {
-        perror("Failed to open file");
-        const char *error_msg = "Failed to open file\n";
-        send_good(sock, error_msg, strlen(error_msg));
-        close(sock);
-        return NULL;
-    }
+//     printf("I HAVE ip: %s, port: %s\n", ip, port_of_cl);
+//     fflush(stdin);
+//     FILE *file = fopen(path, "a");
+//     if (file == NULL) {
+//         perror("Failed to open file");
+//         const char *error_msg = "Failed to open file\n";
+//         send_good(sock, error_msg, strlen(error_msg));
+//         close(sock);
+//         return NULL;
+//     }
 
-    char buffer[ASYNC_BUFF_LEN + 1];
-    size_t buffer_offset = 0;
-    int data_offset = 0;
+//     char buffer[ASYNC_BUFF_LEN + 1];
+//     size_t buffer_offset = 0;
+//     int data_offset = 0;
 
-    for (int i = 0; i < strlen(data); i++) {
-        buffer[buffer_offset++] = data[data_offset++];
-        if (buffer_offset == ASYNC_BUFF_LEN) {
-            fprintf(file, "%s", buffer);
-            bzero(buffer, ASYNC_BUFF_LEN + 1);
-            buffer_offset = 0;
-        }
-    }
+//     for (int i = 0; i < strlen(data); i++) {
+//         buffer[buffer_offset++] = data[data_offset++];
+//         if (buffer_offset == ASYNC_BUFF_LEN) {
+//             fprintf(file, "%s", buffer);
+//             bzero(buffer, ASYNC_BUFF_LEN + 1);
+//             buffer_offset = 0;
+//         }
+//     }
 
-    if (buffer_offset >= 0) {
-        fprintf(file, "%s\n", buffer);
-    }
+//     if (buffer_offset >= 0) {
+//         fprintf(file, "%s\n", buffer);
+//     }
 
-    sleep(10);
-    // Send acknowledgment to the client
-    // ack_msg = "Data written successfully";
-    // if (send_good(sock, ack_msg, strlen(ack_msg)) < 0) {
-    //     perror("Failed to send acknowledgment");
-    // }
-    // printf("qazxswedcvfrtgbnjhyuhnmkiuioklop\n");
+//     sleep(1);
+//     // Send acknowledgment to the client
+//     // ack_msg = "Data written successfully";
+//     // if (send_good(sock, ack_msg, strlen(ack_msg)) < 0) {
+//     //     perror("Failed to send acknowledgment");
+//     // }
+//     // printf("qazxswedcvfrtgbnjhyuhnmkiuioklop\n");
 
-    fclose(file);
-    close(sock);
-    return NULL;
-}
+
+//     // sending ACK
+
+//     int sock1;
+//     struct sockaddr_in nm_addr;
+
+// // Create the sock1et
+//     if ((sock1 = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+//         perror("sock1et creation failed");
+//         exit(EXIT_FAILURE);
+//     }
+
+// // Disable Nagle's algorithm to avoid buffering delays
+//     int flag = 1;
+//     if (setsockopt(sock1, IPPROTO_TCP, TCP_NODELAY, (char *) &flag, sizeof(int)) < 0) {
+//         printf("setsock1opt TCP_NODELAY failed");
+//         close(sock1);
+//         exit(EXIT_FAILURE);
+//     }
+
+// // Set up Naming Server address
+//     nm_addr.sin_family = AF_INET;
+
+// // Use ASYNC_PORT instead of SERVER_PORT
+//     nm_addr.sin_port = htons(ASYNC_PORT_FOR_NM);
+
+//     if (inet_pton(AF_INET, (char *) arguments[2], &nm_addr.sin_addr) <= 0) {
+//         perror("Invalid IP address");
+//         close(sock1);
+//         exit(EXIT_FAILURE);
+//     }
+
+// // Connect to Naming Server
+//     if (connect(sock1, (struct sock1addr *) &nm_addr, sizeof(nm_addr)) < 0) {
+//         perror("Connection to Naming Server failed");
+//         close(sock1);
+//         exit(EXIT_FAILURE);
+//     }
+//     printf("Connected to Naming Server at %s:%d\n", (char *) arguments[2], ASYNC_PORT_FOR_NM);
+
+// // Send data to Naming Server
+//     char buffer2[BUFFER_SIZE] = {0};
+//     snprintf(buffer2, BUFFER_SIZE, "writeasync %s %s %s\n", path, ip, port_of_cl);
+//     if (send_good(sock1, buffer2, strlen(buffer2)) < 0) {
+//         perror("Send failed");
+//         close(sock1);
+//         exit(EXIT_FAILURE);
+//     }
+//     printf("\033[32mACK for write async on path %s sent to Naming Server\033[0m\n", path);
+//     close(sock1);
+
+//     fclose(file);
+//     close(sock);
+//     return NULL;
+// }
 
 int ss_info_to_socket(char *ipOfSS, int portOfSS) {
     // Generated with copilot
@@ -717,15 +777,16 @@ int receive_ack(int socket) {
     return strcmp(ack, "Message received") == 0 ? 0 : -1;
 }
 
-void copy_different_src(char *buffer, char *buffer2, int ss_socket) {
+void copy_different_src(char *buffer, char *buffer2, int ss_socket, int lcopy) {
     char src[MAX_PATH_SIZE], dest[MAX_PATH_SIZE];
     char ip[16];  // Added for storing IP
     int port;     // Added for storing port
+    char _dummy[BUFFER_SIZE];
 
     // Parse the command from the client - now includes IP and port
-    if (sscanf(buffer, "copydifferent %s %s %s %d", src, dest, ip, &port) != 4) {
+    if (sscanf(buffer, "%s %s %s %s %d", _dummy, src, dest, ip, &port) != 5) {
         snprintf(buffer2, BUFFER_SIZE,
-                 "Invalid input format. Expected: copydifferent <srcpath> <destpath> <ip> <port>\n");
+                 "Invalid input format. Expected: copydifferent/lcopy <srcpath> <destpath> <ip> <port>\n");
         return;
     }
 
@@ -761,7 +822,9 @@ void copy_different_src(char *buffer, char *buffer2, int ss_socket) {
     if (S_ISDIR(st.st_mode)) {
         send_directory_over_network(ss_socket, src, length_to_skip);
     } else if (S_ISREG(st.st_mode)) {
-
+        if (lcopy == 1) {
+            length_to_skip = 0;
+        }
         send_file_over_network(ss_socket, src, length_to_skip);
     } else {
         snprintf(buffer2, BUFFER_SIZE, "Unsupported file type\n");
@@ -794,6 +857,8 @@ void send_file_over_network(int ss_socket, const char *src, int length_to_skip) 
     char metadata[MAX_PATH_SIZE + 50];
 
     snprintf(metadata, sizeof(metadata), "FILE %s\n", src + length_to_skip);
+
+    printf("METADATA: %s\n", metadata);
 
     if (send(ss_socket, metadata, strlen(metadata), 0) < 0 ||
         receive_ack(ss_socket) < 0) {
@@ -882,48 +947,72 @@ void receive_and_save_directory(int ss_socket, const char *dest) {
 }
 
 void receive_and_save_file(int ss_socket, const char *dest) {
-    printf("Received File Name : %s\n", dest);
+    printf("Received File Name: %s\n", dest);
+
     // Receive file size
-    char buffer[BUFFER_SIZE];
+    char buffer[BUFFER_SIZE] = {0};
     ssize_t bytes_received = recv(ss_socket, buffer, sizeof(buffer) - 1, 0);
     if (bytes_received <= 0) {
-        perror("Failed to receive file size");
+        fprintf(stderr, "Failed to receive file size: %s\n", strerror(errno));
         return;
     }
     buffer[bytes_received] = '\0';
 
     long file_size = atol(buffer);
+    printf("Expected file size: %ld bytes\n", file_size);
     send_ack(ss_socket);
 
-    // Create destination file
-    int dest_fd = open(dest, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (dest_fd < 0) {
-        perror("Failed to create destination file");
+    // Create destination file in binary mode
+    FILE *dest_file = fopen(dest, "wb");  // Changed to binary mode
+    if (dest_file == NULL) {
+        fprintf(stderr, "Failed to create destination file %s: %s\n", dest, strerror(errno));
         return;
     }
 
     // Receive and write file contents
     long total_received = 0;
     while (total_received < file_size) {
+        memset(buffer, 0, BUFFER_SIZE);
         size_t remaining = file_size - total_received;
         size_t to_receive = (remaining < sizeof(buffer)) ? remaining : sizeof(buffer);
 
-        bytes_received = recv(ss_socket, buffer, to_receive, 0);
-        if (bytes_received <= 0) {
-            perror("Failed to receive file contents");
-            break;
+        // Keep receiving until we get all expected bytes for this chunk
+        size_t chunk_received = 0;
+        while (chunk_received < to_receive) {
+            bytes_received = recv(ss_socket,
+                                  buffer + chunk_received,
+                                  to_receive - chunk_received,
+                                  0);
+            if (bytes_received <= 0) {
+                fprintf(stderr, "Failed to receive file contents: %s\n", strerror(errno));
+                goto cleanup;  // Use goto for proper cleanup in error case
+            }
+            chunk_received += bytes_received;
         }
 
-        if (write(dest_fd, buffer, bytes_received) != bytes_received) {
-            perror("Failed to write to destination file");
-            break;
+
+
+        // Write full chunk
+        size_t written = fwrite(buffer, 1, chunk_received, dest_file);
+        if (written != chunk_received) {
+            fprintf(stderr, "Failed to write to file: %s\n", strerror(errno));
+            goto cleanup;
         }
 
-        total_received += bytes_received;
+        // Flush after each write
+        fflush(dest_file);
+
+
+        total_received += chunk_received;
         send_ack(ss_socket);
     }
 
-    close(dest_fd);
+
+    cleanup:
+    // Final flush and close
+    fflush(dest_file);
+    fclose(dest_file);
+
 }
 
 void copy_different_dest(int ss_socket) {
@@ -967,9 +1056,10 @@ void copy_different_dest(int ss_socket) {
 
         char full_path[MAX_PATH_SIZE];
         if (strncmp(buffer, "FILE ", 5) == 0) {
+            printf("\033[32mReceived path is : %s\033[0m\n", buffer);
             char filename[MAX_PATH_SIZE];
             sscanf(buffer + 5, "%s", filename);
-            if (strncmp(base_dest_path, "./backupfolderforss", strlen("./backupfolderforss")) == 0) {
+            if (strncmp(filename, "./", 2) == 0) {
                 snprintf(full_path, sizeof(full_path), "%s/%s", base_dest_path, filename + 2);
             } else {
                 snprintf(full_path, sizeof(full_path), "%s/%s", base_dest_path, filename);
@@ -980,10 +1070,11 @@ void copy_different_dest(int ss_socket) {
         } else if (strncmp(buffer, "DIR ", 4) == 0) {
             char dirname[MAX_PATH_SIZE];
             sscanf(buffer + 4, "%s", dirname);
-            if (strncmp(base_dest_path, "./backupfolderforss", strlen("./backupfolderforss")) == 0) {
+            if (strncmp(dirname, "./", 2) == 0) {
                 snprintf(full_path, sizeof(full_path), "%s/%s", base_dest_path, dirname + 2);
-            } else
+            } else {
                 snprintf(full_path, sizeof(full_path), "%s/%s", base_dest_path, dirname);
+            }
             send_ack(ss_socket);
             receive_and_save_directory(ss_socket, full_path);
         }

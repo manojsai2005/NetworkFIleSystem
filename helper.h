@@ -12,7 +12,7 @@
 #define CLIENT_PORT_NS 9024
 #define MAX_STORAGE_SERVERS 10
 #define ASYNC_BUFF_LEN 32
-
+#define ASYNC_PORT_FOR_NM 9037
 
 
 #define BUFFER_SIZE_FOR_MUSIC 8192
@@ -69,7 +69,7 @@ extern Command commands[];
 void copy_same(char* buffer,char* buffer2);
 extern size_t num_commands;
 void copy_different_dest(int ss_socket);
-void copy_different_src(char*buffer, char* buffer2,int ss_socket);
+void copy_different_src(char *buffer, char *buffer2, int ss_socket,int lcopy);
 int ss_info_to_socket(char* ipOfSS, int portOfSS);
 void send_file_over_network(int ss_socket, const char *src,int length_to_skip);
 void send_directory_over_network(int ss_socket, const char *src,int length_to_skip);
