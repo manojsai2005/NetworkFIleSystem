@@ -17,8 +17,7 @@
    ```bash
    make ss
    ```  
-   For any other setup, just replace `./storage_server <IP OF SERVER> <ROOT_PATH>` with your custom command.
-4. **NB:**`rm -rf ./backupfolerforss` to remove the backfolders in each maching in SS 
+   For any other setup, just replace `./storage_server <IP OF SERVER> <ROOT_PATH>` with your custom command.  
 
 ---
 
@@ -35,7 +34,6 @@
 
 4. **Streaming (`stream` command)**:  
    This command uses `ffplay` to work. Please ensure it is installed on your system.
-5. **Backup and Redundancy**: Backup and redundancy mechanisms work in conjunction with caching.
 
 ---
 
